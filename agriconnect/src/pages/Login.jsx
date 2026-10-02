@@ -1,15 +1,41 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { loginUser,resetPassword } from "../services/authService.js";
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
+const [message, setMessage] = useState("");
+const [error, setError] = useState("");
+const [loading, setLoading] = useState(false);
 const navigate = useNavigate();
-  const handleLogin = (e) => {
-    e.preventDefault();
+ const handleLogin = async (e) => {
+  e.preventDefault();
 
-    // Backend API yahan connect karenge
-    console.log("Login clicked");
-  };
+  setMessage("");
+  setError("");
+
+  try {
+    setLoading(true);
+
+    const data = await loginUser(email, password);
+
+    console.log("Login successful:", data);
+
+    setMessage("Login successful! Redirecting to dashboard...");
+
+    setTimeout(() => {
+      navigate("/dashboard");
+    }, 800);
+
+  } catch (error) {
+    console.error("Login error:", error);
+    setError(error.message || "Login failed. Please check your email and password.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#030b06] text-white relative overflow-hidden">
@@ -196,7 +222,7 @@ const navigate = useNavigate();
               <div className="mb-5">
 
                 <label className="block text-sm text-gray-400 mb-2">
-                  Email / Mobile
+                  Email 
                 </label>
 
                 <div
@@ -216,19 +242,21 @@ const navigate = useNavigate();
                     ✉️
                   </span>
 
-                  <input
-                    type="text"
-                    placeholder="Enter your email or mobile"
-                    className="
-                      w-full
-                      bg-transparent
-                      py-4
-                      outline-none
-                      text-white
-                      placeholder-gray-600
-                    "
-                    required
-                  />
+                 <input
+  type="email"
+  placeholder="Enter your email"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  className="
+    w-full
+    bg-transparent
+    py-4
+    outline-none
+    text-white
+    placeholder-gray-600
+  "
+  required
+/>
 
                 </div>
 
@@ -263,6 +291,8 @@ const navigate = useNavigate();
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
+                    value={password}
+onChange={(e) => setPassword(e.target.value)}
                     className="
                       w-full
                       bg-transparent
@@ -289,49 +319,75 @@ const navigate = useNavigate();
                 </div>
 
               </div>
+              {message && (
+  <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+    {message}
+  </div>
+)}
+
+{error && (
+  <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+    {error}
+  </div>
+)}
 
 
               {/* Forgot Password */}
 
-              <div className="text-right mb-6">
+             <button
+  type="button"
+  onClick={async () => {
+    if (!email) {
+      setError("Please enter your email first.");
+      return;
+    }
 
-                <button
-                  type="button"
-                  className="
-                    text-sm
-                    text-green-400
-                    hover:text-green-300
-                  "
-                >
-                  Forgot Password?
-                </button>
+    try {
+      setError("");
+      setMessage("");
 
-              </div>
+      await resetPassword(email);
 
-
+      setMessage("Password reset link has been sent to your email.");
+    } catch (error) {
+      console.error("Reset password error:", error);
+      setError(error.message || "Failed to send reset link.");
+    }
+  }}
+  className="
+    text-sm
+    text-green-400
+    hover:text-green-300
+  "
+>
+  Forgot Password?
+</button>
               {/* ================= LOGIN BUTTON ================= */}
 
               <button
-                type="submit"
-                className="
-                  w-full
-                  py-4
-                  rounded-xl
-                  bg-gradient-to-r
-                  from-green-500
-                  to-lime-400
-                  text-black
-                  font-bold
-                  text-lg
-                  tracking-wide
-                  shadow-[0_0_25px_rgba(34,197,94,0.25)]
-                  hover:shadow-[0_0_40px_rgba(34,197,94,0.4)]
-                  hover:scale-[1.01]
-                  transition-all
-                "
-              >
-                🌱 LOGIN →
-              </button>
+  type="submit"
+  disabled={loading}
+  className="
+    w-full
+    py-4
+    rounded-xl
+    bg-gradient-to-r
+    from-green-500
+    to-lime-400
+    text-black
+    font-bold
+    text-lg
+    tracking-wide
+    shadow-[0_0_25px_rgba(34,197,94,0.25)]
+    hover:shadow-[0_0_40px_rgba(34,197,94,0.4)]
+    hover:scale-[1.01]
+    transition-all
+    disabled:opacity-60
+    disabled:cursor-not-allowed
+  "
+>
+  {loading ? "⏳ LOGGING IN..." : "🌱 LOGIN →"}
+</button>
 
 
               {/* ================= REGISTER ================= */}

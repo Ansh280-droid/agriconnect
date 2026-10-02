@@ -1,16 +1,48 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { registerUser } from "../services/authService.js";
 
 function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState("farmer");
 
-  const handleRegister = (e) => {
-    e.preventDefault();
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-    // Backend registration API yahan connect karenge
-    console.log("Registration submitted");
-  };
+ const handleRegister = async (e) => {
+  e.preventDefault();
+
+  setMessage("");
+  setError("");
+
+  if (password !== confirmPassword) {
+    setError("Passwords do not match.");
+    return;
+  }
+
+  try {
+    const data = await registerUser(email, password, {
+      full_name: name,
+      mobile: mobile,
+      role: role,
+    });
+
+    console.log("Registration successful:", data);
+
+    setMessage(
+      "Account created successfully! Please check your email for verification."
+    );
+  } catch (error) {
+    console.error("Registration error:", error);
+    setError(error.message);
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#030b06] text-white relative overflow-hidden">
@@ -190,6 +222,8 @@ function Register() {
                   <input
                     type="text"
                     placeholder="Enter your full name"
+                    value={name}
+onChange={(e) => setName(e.target.value)}
                     className="
                       w-full bg-transparent
                       py-3.5
@@ -230,6 +264,8 @@ function Register() {
                   <input
                     type="email"
                     placeholder="Enter your email"
+                    value={email}
+onChange={(e) => setEmail(e.target.value)}
                     className="
                       w-full bg-transparent
                       py-3.5
@@ -270,6 +306,8 @@ function Register() {
                   <input
                     type="tel"
                     placeholder="Enter mobile number"
+                    value={mobile}
+onChange={(e) => setMobile(e.target.value)}
                     className="
                       w-full bg-transparent
                       py-3.5
@@ -298,12 +336,13 @@ function Register() {
                   <label className="cursor-pointer">
 
                     <input
-                      type="radio"
-                      name="role"
-                      value="farmer"
-                      defaultChecked
-                      className="peer hidden"
-                    />
+  type="radio"
+  name="role"
+  value="farmer"
+  checked={role === "farmer"}
+  onChange={(e) => setRole(e.target.value)}
+  className="peer hidden"
+/>
 
                     <div
                       className="
@@ -331,12 +370,14 @@ function Register() {
 
                   <label className="cursor-pointer">
 
-                    <input
-                      type="radio"
-                      name="role"
-                      value="admin"
-                      className="peer hidden"
-                    />
+                   <input
+  type="radio"
+  name="role"
+  value="admin"
+  checked={role === "admin"}
+  onChange={(e) => setRole(e.target.value)}
+  className="peer hidden"
+/>
 
                     <div
                       className="
@@ -391,6 +432,8 @@ function Register() {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Create password"
+                    value={password}
+onChange={(e) => setPassword(e.target.value)}
                     className="
                       w-full bg-transparent
                       py-3.5
@@ -441,6 +484,8 @@ function Register() {
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
+                    value={confirmPassword}
+onChange={(e) => setConfirmPassword(e.target.value)}
                     className="
                       w-full bg-transparent
                       py-3.5
@@ -464,6 +509,21 @@ function Register() {
                 </div>
 
               </div>
+
+
+              {/* ================= MESSAGES ================= */}
+
+              {message && (
+                <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+                  {message}
+                </div>
+              )}
+
+              {error && (
+                <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  {error}
+                </div>
+              )}
 
 
               {/* ================= REGISTER BUTTON ================= */}

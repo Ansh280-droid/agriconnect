@@ -1,10 +1,258 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getCurrentUser, logoutUser } from "../services/authService.js";
+import { getCrops,addCrop,updateCrop,
+  deleteCrop } from "../services/cropService.js";
+  import { getMarketPrices } from "../services/marketprice.js";
+  import { getGovernmentSchemes } from "../services/schemeService.js";
+  import { getNearbyServices } from "../services/nearbyService.js";
+  import {
+  getWeather,
+  getLocationName,
+} from "../services/weatherService.js";
 
+
+function getCropIcon(cropName) {
+  const icons = {
+    wheat: "🌾",
+    rice: "🌿",
+    potato: "🥔",
+    tomato: "🍅",
+    maize: "🌽",
+    corn: "🌽",
+  };
+
+  return icons[cropName?.toLowerCase()] || "🌱";
+}
 function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+const [user, setUser] = useState(null);
+const [loading, setLoading] = useState(true);
+const [crops, setCrops] = useState([]);
+const [marketPrices, setMarketPrices] = useState([]);
+const [governmentSchemes, setGovernmentSchemes] = useState([]);
+const [schemesLoading, setSchemesLoading] = useState(true);
+const [nearbyServices, setNearbyServices] = useState([]);
+const [activeSection, setActiveSection] = useState("");
+const [nearbyServicesLoading, setNearbyServicesLoading] = useState(true);
+const [marketPricesLoading, setMarketPricesLoading] = useState(true);
+const [cropsLoading, setCropsLoading] = useState(true);
+const [showAddCrop, setShowAddCrop] = useState(false);
+const [cropName, setCropName] = useState("");
+const [cropStatus, setCropStatus] = useState("");
+const [cropProgress, setCropProgress] = useState("");
+const [cropDays, setCropDays] = useState("");
+const [addingCrop, setAddingCrop] = useState(false);
+const [editingCrop, setEditingCrop] = useState(null);
+const [updatingCrop, setUpdatingCrop] = useState(false);
+const [weather, setWeather] = useState(null);
+const [weatherLoading, setWeatherLoading] = useState(true);
+const [locationName, setLocationName] = useState(
+  "Kanpur, Uttar Pradesh"
+);
+const [location, setLocation] = useState({
+  latitude: 26.4499,
+  longitude: 80.3319,
+});
+
+  const navigate = useNavigate();
+  useEffect(() => {
+  const checkAuth = async () => {
+    try {
+      await getCurrentUser();
+    } catch (error) {
+      navigate("/login");
+    }
+  };
+
+  checkAuth();
+}, [navigate]);
+const getUserLocation = () => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        reject(error);
+      }
+    );
+  });
+};
+  useEffect(() => {
+  const loadDashboardData = async () => {
+    try {
+      const userLocation = await getUserLocation();
+       setLocation(userLocation);
+       const place = await getLocationName(
+  userLocation.latitude,
+  userLocation.longitude
+);
+
+setLocationName(
+  place.state
+    ? `${place.city}, ${place.state}`
+    : place.city
+);
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+
+      const cropData = await getCrops();
+      setCrops(cropData);
+      const marketData = await getMarketPrices();
+setMarketPrices(marketData);
+const schemeData = await getGovernmentSchemes();
+setGovernmentSchemes(schemeData);
+const servicesData = await getNearbyServices();
+setNearbyServices(servicesData);
+const weatherData = await getWeather(
+  userLocation.latitude,
+  userLocation.longitude
+);
+setWeather(weatherData);
+    } catch (error) {
+      console.error("Dashboard data error:", error);
+    } finally {
+      setLoading(false);
+      setCropsLoading(false);
+      setMarketPricesLoading(false);
+      setSchemesLoading(false);
+      setNearbyServicesLoading(false);
+      setWeatherLoading(false);
+    }
+  };
+
+  loadDashboardData();
+}, []);
+const closeCropModal = () => {
+  setShowAddCrop(false);
+  setEditingCrop(null);
+  setCropName("");
+  setCropStatus("");
+  setCropProgress("");
+  setCropDays("");
+};
+const handleAddCrop = async () => {
+  if (!cropName || !cropStatus || !cropProgress || !cropDays) {
+    alert("Please fill all fields.");
+    return;
+  }
+
+  try {
+    setAddingCrop(true);
+
+    const newCrop = await addCrop({
+      crop_name: cropName,
+      status: cropStatus,
+      progress: Number(cropProgress),
+      days: Number(cropDays),
+    });
+
+    setCrops((prevCrops) => [newCrop, ...prevCrops]);
+
+    setCropName("");
+    setCropStatus("");
+    setCropProgress("");
+    setCropDays("");
+
+    setShowAddCrop(false);
+
+  } catch (error) {
+    console.error("Add crop error:", error);
+    alert(error.message);
+  } finally {
+    setAddingCrop(false);
+  }
+};
+const handleEditCrop = (crop) => {
+  setEditingCrop(crop);
+
+  setCropName(crop.crop_name);
+  setCropStatus(crop.status || "");
+  setCropProgress(crop.progress ?? "");
+  setCropDays(crop.days ?? "");
+
+  setShowAddCrop(true);
+};
+const handleUpdateCrop = async () => {
+  if (!cropName || !cropStatus || !cropProgress || !cropDays) {
+    alert("Please fill all fields.");
+    return;
+  }
+
+  try {
+    setUpdatingCrop(true);
+
+    const updatedCrop = await updateCrop(editingCrop.id, {
+      crop_name: cropName,
+      status: cropStatus,
+      progress: Number(cropProgress),
+      days: Number(cropDays),
+    });
+
+    setCrops((prevCrops) =>
+      prevCrops.map((crop) =>
+        crop.id === updatedCrop.id ? updatedCrop : crop
+      )
+    );
+
+    setCropName("");
+    setCropStatus("");
+    setCropProgress("");
+    setCropDays("");
+
+    setEditingCrop(null);
+    setShowAddCrop(false);
+
+  } catch (error) {
+    console.error("Update crop error:", error);
+    alert(error.message);
+
+  } finally {
+    setUpdatingCrop(false);
+  }
+};
+const handleDeleteCrop = async (cropId) => {
+  const confirmDelete = window.confirm(
+    "Are you sure you want to delete this crop?"
+  );
+
+  if (!confirmDelete) return;
+
+  try {
+    await deleteCrop(cropId);
+
+    setCrops((prevCrops) =>
+      prevCrops.filter((crop) => crop.id !== cropId)
+    );
+
+  } catch (error) {
+    console.error("Delete crop error:", error);
+    alert(error.message);
+  }
+};
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+  
 
   return (
     <div className="min-h-screen bg-[#030b06] text-white">
+      
 
       {/* ================= BACKGROUND ================= */}
 
@@ -155,9 +403,15 @@ function Dashboard() {
           />
 
           <SidebarItem
-            icon="🗺️"
-            text="Nearby Services"
-          />
+  icon="🗺️"
+  text="Nearby Services"
+  active={activeSection === "nearby"}
+  onClick={() =>
+  setActiveSection(
+    activeSection === "nearby" ? "" : "nearby"
+  )
+}
+/>
 
         </nav>
 
@@ -200,6 +454,7 @@ function Dashboard() {
           </button>
 
           <button
+          onClick={handleLogout}
             className="
               w-full
               text-left
@@ -235,8 +490,8 @@ function Dashboard() {
               </p>
 
               <h1 className="text-3xl md:text-4xl font-bold mt-1">
-                Welcome, Farmer 👨‍🌾
-              </h1>
+  Welcome, {user?.user_metadata?.full_name || "Farmer"} 👨‍🌾
+</h1>
 
               <p className="text-gray-500 mt-2">
                 Here's what's happening with your farm today.
@@ -272,12 +527,31 @@ function Dashboard() {
               <div>
 
                 <p className="font-semibold">
-                  Ansh Yadav
-                </p>
+  {loading
+    ? "Loading..."
+    : user?.user_metadata?.full_name || "Farmer"}
+</p>
 
-                <p className="text-xs text-gray-500">
-                  Farmer Account
-                </p>
+<p className="text-xs text-gray-500">
+  {user?.user_metadata?.role === "admin"
+    ? "Admin Account"
+    : "Farmer Account"}
+</p>
+<p className="text-xs text-gray-500">
+  {user?.email || "No email"}
+</p>
+<p className="text-xs text-green-400">
+  {user?.email_confirmed_at
+    ? "🟢 Verified Account"
+    : "🟡 Email Not Verified"}
+</p>
+<p className="text-xs text-gray-500">
+  📅 Member Since:{" "}
+  {user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("en-IN")
+    : "N/A"}
+</p>
+
 
               </div>
 
@@ -328,9 +602,9 @@ function Dashboard() {
                     Current Weather
                   </p>
 
-                  <h2 className="text-xl font-bold mt-1">
-                    Your Farm Location 📍
-                  </h2>
+  <h2 className="text-2xl font-bold">
+  {locationName} 📍
+</h2>
 
                 </div>
 
@@ -343,30 +617,45 @@ function Dashboard() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
-                <WeatherItem
-                  icon="🌡️"
-                  label="Temperature"
-                  value="28°C"
-                />
+<WeatherItem
+  icon="🌡️"
+  label="Temperature"
+  value={
+    weatherLoading
+      ? "Loading..."
+      : `${weather?.temperature ?? "--"}°C`
+  }
+/>
 
-                <WeatherItem
-                  icon="💧"
-                  label="Humidity"
-                  value="68%"
-                />
+<WeatherItem
+  icon="💧"
+  label="Humidity"
+  value={
+    weatherLoading
+      ? "Loading..."
+      : `${weather?.humidity ?? "--"}%`
+  }
+/>
 
-                <WeatherItem
-                  icon="💨"
-                  label="Wind"
-                  value="12 km/h"
-                />
+<WeatherItem
+  icon="💨"
+  label="Wind"
+  value={
+    weatherLoading
+      ? "Loading..."
+      : `${weather?.windSpeed ?? "--"} km/h`
+  }
+/>
 
-                <WeatherItem
-                  icon="🌧️"
-                  label="Rain Chance"
-                  value="20%"
-                />
-
+<WeatherItem
+  icon="🌧️"
+  label="Rain Chance"
+  value={
+    weatherLoading
+      ? "Loading..."
+      : `${weather?.precipitationProbability ?? "--"}%`
+  }
+/>
               </div>
 
             </div>
@@ -381,7 +670,7 @@ function Dashboard() {
             <StatCard
               icon="🌱"
               title="My Crops"
-              value="4"
+              value={crops.length}
               subtitle="Active crops"
             />
 
@@ -426,57 +715,161 @@ function Dashboard() {
                 p-6
               "
             >
+<div className="flex justify-between items-center mb-6">
 
-              <div className="flex justify-between items-center mb-6">
+  <div>
+    <h2 className="text-xl font-bold">
+      My Crops 🌱
+    </h2>
 
-                <div>
+    <p className="text-sm text-gray-500 mt-1">
+      Monitor your crops
+    </p>
+  </div>
 
-                  <h2 className="text-xl font-bold">
-                    My Crops 🌱
-                  </h2>
+  <div className="flex items-center gap-4">
+    <button
+      onClick={() => setShowAddCrop(true)}
+      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition"
+    >
+      + Add Crop
+    </button>
 
-                  <p className="text-sm text-gray-500 mt-1">
-                    Monitor your crops
-                  </p>
-
-                </div>
-
-                <button className="text-green-400 text-sm">
-                  View All →
-                </button>
-
-              </div>
+    <button className="text-green-400 text-sm">
+      View All →
+    </button>
+  </div>
+  </div>
 
 
               <div className="space-y-4">
 
-                <CropCard
-                  name="Wheat"
-                  icon="🌾"
-                  progress="75%"
-                  status="Growing Well"
-                  days="45 Days"
-                />
-
-                <CropCard
-                  name="Rice"
-                  icon="🌿"
-                  progress="55%"
-                  status="Healthy"
-                  days="30 Days"
-                />
-
-                <CropCard
-                  name="Potato"
-                  icon="🥔"
-                  progress="85%"
-                  status="Ready Soon"
-                  days="60 Days"
-                />
+                {cropsLoading ? (
+  <p className="text-gray-500 text-sm">Loading crops...</p>
+) : crops.length === 0 ? (
+  <p className="text-gray-500 text-sm">
+    No crops added yet.
+  </p>
+) : (
+  crops.map((crop) => (
+    <CropCard
+      key={crop.id}
+      id={crop.id}
+      name={crop.crop_name}
+      icon={getCropIcon(crop.crop_name)}
+      progress={`${crop.progress ?? 0}%`}
+      status={crop.status || "Healthy"}
+      days={`${crop.days ?? 0} Days`}
+       onEdit={handleEditCrop}
+  onDelete={handleDeleteCrop}
+    />
+  ))
+)}
 
               </div>
 
             </div>
+            {showAddCrop && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+
+    <div className="w-full max-w-md rounded-3xl bg-[#07140b] border border-green-500/20 p-6">
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold">
+  {editingCrop ? "Edit Crop ✏️" : "Add New Crop 🌱"}
+</h2>
+
+        <button
+  onClick={closeCropModal}
+  className="text-gray-400 hover:text-white text-xl"
+>
+  ✕
+</button>
+      </div>
+
+      {/* Crop Name */}
+      <label className="text-sm text-gray-400">
+        Crop Name
+      </label>
+
+      <input
+        type="text"
+        placeholder="e.g. Wheat"
+        value={cropName}
+        onChange={(e) => setCropName(e.target.value)}
+        className="w-full mt-2 px-4 py-3 rounded-xl bg-black/30 border border-green-900/40 text-white outline-none focus:border-green-500"
+      />
+
+      {/* Status */}
+      <label className="block text-sm text-gray-400 mt-4">
+        Status
+      </label>
+
+      <input
+        type="text"
+        placeholder="e.g. Growing Well"
+        value={cropStatus}
+        onChange={(e) => setCropStatus(e.target.value)}
+        className="w-full mt-2 px-4 py-3 rounded-xl bg-black/30 border border-green-900/40 text-white outline-none focus:border-green-500"
+      />
+
+      {/* Progress */}
+      <label className="block text-sm text-gray-400 mt-4">
+        Progress (%)
+      </label>
+
+      <input
+        type="number"
+        placeholder="e.g. 75"
+        value={cropProgress}
+        onChange={(e) => setCropProgress(e.target.value)}
+        className="w-full mt-2 px-4 py-3 rounded-xl bg-black/30 border border-green-900/40 text-white outline-none focus:border-green-500"
+      />
+
+      {/* Days */}
+      <label className="block text-sm text-gray-400 mt-4">
+        Days
+      </label>
+
+      <input
+        type="number"
+        placeholder="e.g. 45"
+        value={cropDays}
+        onChange={(e) => setCropDays(e.target.value)}
+        className="w-full mt-2 px-4 py-3 rounded-xl bg-black/30 border border-green-900/40 text-white outline-none focus:border-green-500"
+      />
+
+      {/* Buttons */}
+      <div className="flex gap-3 mt-6">
+
+        <button
+  onClick={closeCropModal}
+  className="flex-1 py-3 rounded-xl border border-gray-700 text-gray-400 hover:text-white"
+>
+  Cancel
+</button>
+
+        <button
+          onClick={editingCrop ? handleUpdateCrop : handleAddCrop}
+         disabled={addingCrop || updatingCrop}
+          className="flex-1 py-3 rounded-xl bg-green-500 text-black font-bold hover:bg-green-400 disabled:opacity-50"
+        >
+         {editingCrop
+  ? updatingCrop
+    ? "Updating..."
+    : "Update Crop"
+  : addingCrop
+    ? "Adding..."
+    : "Add Crop"}
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
+
 
 
             {/* ================= AI ASSISTANT ================= */}
@@ -575,34 +968,25 @@ function Dashboard() {
               </div>
 
 
-              <MarketItem
-                crop="Wheat"
-                price="₹2,450"
-                change="+4.2%"
-                icon="🌾"
-              />
-
-              <MarketItem
-                crop="Rice"
-                price="₹3,200"
-                change="+2.1%"
-                icon="🌿"
-              />
-
-              <MarketItem
-                crop="Potato"
-                price="₹1,850"
-                change="-1.3%"
-                icon="🥔"
-              />
-
-              <MarketItem
-                crop="Tomato"
-                price="₹2,900"
-                change="+6.4%"
-                icon="🍅"
-              />
-
+              {marketPricesLoading ? (
+  <p className="text-gray-500 text-sm">
+    Loading market prices...
+  </p>
+) : marketPrices.length === 0 ? (
+  <p className="text-gray-500 text-sm">
+    No market prices available.
+  </p>
+) : (
+  marketPrices.map((item) => (
+    <MarketItem
+      key={item.id}
+      crop={item.crop_name}
+      price={`₹${Number(item.price).toLocaleString("en-IN")}`}
+      change="Today"
+      icon={getCropIcon(item.crop_name)}
+    />
+  ))
+)}
             </div>
 
 
@@ -639,24 +1023,80 @@ function Dashboard() {
               </div>
 
 
-              <div className="grid md:grid-cols-2 gap-4">
+             <div className="grid md:grid-cols-2 gap-4">
 
-                <SchemeCard
-                  title="PM-KISAN"
-                  description="Financial support for eligible farmers"
-                />
+  {schemesLoading ? (
+    <p className="text-gray-500 text-sm">
+      Loading government schemes...
+    </p>
+  ) : governmentSchemes.length === 0 ? (
+    <p className="text-gray-500 text-sm">
+      No government schemes available.
+    </p>
+  ) : (
+    governmentSchemes.map((scheme) => (
+      <SchemeCard
+        key={scheme.id}
+        title={scheme.scheme_name}
+        description={scheme.description}
+         benefit={scheme.benefit}
+  eligibility={scheme.eligibility}
+  applicationLink={scheme.application_link}
+      />
+    ))
+  )}
 
-                <SchemeCard
-                  title="PM Fasal Bima Yojana"
-                  description="Crop insurance and protection"
-                />
-
-              </div>
+</div>
 
             </div>
 
           </div>
+          {/* ================= NEARBY SERVICES ================= */}
+{/* ================= NEARBY SERVICES ================= */}
+{activeSection === "nearby" && (
+  <div className="mt-7 rounded-3xl border border-green-900/40 bg-green-950/10 p-6">
+    
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-5">
+      <div>
+        <h2 className="text-xl font-bold">
+          Nearby Services 🗺️
+        </h2>
 
+        <p className="text-sm text-gray-500 mt-1">
+          Useful agricultural services near you
+        </p>
+      </div>
+
+      <span className="text-green-400 text-sm">
+        📍 {locationName}
+      </span>
+    </div>
+
+    {nearbyServicesLoading ? (
+      <p className="text-gray-500 text-sm">
+        Loading nearby services...
+      </p>
+    ) : nearbyServices.length === 0 ? (
+      <p className="text-gray-500 text-sm">
+        No nearby services available.
+      </p>
+    ) : (
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {nearbyServices.map((service) => (
+          <ServiceCard
+            key={service.id}
+            serviceName={service.service_name}
+            serviceType={service.service_type}
+            location={service.location}
+            phone={service.phone}
+            address={service.address}
+          />
+        ))}
+      </div>
+    )}
+
+  </div>
+)}
 
           {/* ================= EMERGENCY ================= */}
 
@@ -735,9 +1175,10 @@ function Dashboard() {
 /* ================================================= */
 
 
-function SidebarItem({ icon, text, active }) {
+function SidebarItem({ icon, text, active ,onClick}) {
   return (
     <button
+    onClick={onClick}
       className={`
         w-full
         flex
@@ -838,7 +1279,16 @@ function StatCard({ icon, title, value, subtitle }) {
 }
 
 
-function CropCard({ name, icon, progress, status, days }) {
+function CropCard({
+  id,
+  name,
+  icon,
+  progress,
+  status,
+  days,
+  onEdit,
+  onDelete,
+}) {
   return (
     <div
       className="
@@ -866,26 +1316,49 @@ function CropCard({ name, icon, progress, status, days }) {
 
         <div className="flex-1">
 
-          <div className="flex justify-between">
+          <div className="flex justify-between items-start">
 
-            <div>
+  <div>
+    <h3 className="font-semibold">
+      {name}
+    </h3>
 
-              <h3 className="font-semibold">
-                {name}
-              </h3>
+    <p className="text-xs text-green-500 mt-1">
+      {status}
+    </p>
+  </div>
 
-              <p className="text-xs text-green-500 mt-1">
-                {status}
-              </p>
+  <div className="flex items-center gap-3">
 
-            </div>
+    <span className="text-xs text-gray-600">
+      {days}
+    </span>
 
-            <span className="text-xs text-gray-600">
-              {days}
-            </span>
+    <button
+      onClick={() =>
+        onEdit({
+          id,
+          crop_name: name,
+          status,
+          progress: parseInt(progress),
+          days: parseInt(days),
+        })
+      }
+      className="text-blue-400 hover:text-blue-300 text-sm"
+    >
+      ✏️
+    </button>
 
-          </div>
+    <button
+      onClick={() => onDelete(id)}
+      className="text-red-400 hover:text-red-300 text-sm"
+    >
+      🗑️
+    </button>
 
+  </div>
+
+</div>
 
           <div className="mt-3">
 
@@ -958,7 +1431,13 @@ function MarketItem({ crop, price, change, icon }) {
 }
 
 
-function SchemeCard({ title, description }) {
+function SchemeCard({
+  title,
+  description,
+  benefit,
+  eligibility,
+  applicationLink,
+}) {
   return (
     <div
       className="
@@ -970,9 +1449,7 @@ function SchemeCard({ title, description }) {
         transition
       "
     >
-
       <div className="flex justify-between">
-
         <div className="text-2xl">
           📋
         </div>
@@ -980,7 +1457,6 @@ function SchemeCard({ title, description }) {
         <span className="text-green-400">
           →
         </span>
-
       </div>
 
       <h3 className="font-semibold mt-4">
@@ -991,9 +1467,70 @@ function SchemeCard({ title, description }) {
         {description}
       </p>
 
+      {benefit && (
+        <p className="text-xs text-green-400 mt-2">
+          💰 Benefit: {benefit}
+        </p>
+      )}
+
+      {eligibility && (
+        <p className="text-xs text-gray-400 mt-2">
+          👤 Eligibility: {eligibility}
+        </p>
+      )}
+
+      {applicationLink && (
+        <a
+          href={applicationLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block mt-3 text-sm text-green-400 hover:text-green-300"
+        >
+          Apply / Learn More →
+        </a>
+      )}
     </div>
   );
 }
+function ServiceCard({
+  serviceName,
+  serviceType,
+  location,
+  phone,
+  address,
+}) {
+  return (
+    <div className="p-4 rounded-2xl bg-black/20 border border-green-900/30 hover:border-green-500/30 transition">
+      
+      <div className="flex justify-between items-start">
+        <div className="text-2xl">🛠️</div>
 
+        <span className="text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
+          {serviceType}
+        </span>
+      </div>
+
+      <h3 className="font-semibold mt-4">
+        {serviceName}
+      </h3>
+
+      <p className="text-xs text-gray-400 mt-2">
+        📍 {location}
+      </p>
+
+      {address && (
+        <p className="text-xs text-gray-500 mt-2">
+          🏠 {address}
+        </p>
+      )}
+
+      {phone && (
+        <p className="text-xs text-gray-400 mt-2">
+          📞 {phone}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default Dashboard;
