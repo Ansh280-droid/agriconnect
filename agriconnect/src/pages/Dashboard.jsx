@@ -47,9 +47,21 @@ const [editingCrop, setEditingCrop] = useState(null);
 const [updatingCrop, setUpdatingCrop] = useState(false);
 const [weather, setWeather] = useState(null);
 const [weatherLoading, setWeatherLoading] = useState(true);
+const [showAI, setShowAI] = useState(true);
 const [locationName, setLocationName] = useState(
   "Kanpur, Uttar Pradesh"
 );
+const [aiMessage, setAiMessage] = useState("");
+
+const [aiMessages, setAiMessages] = useState([
+  {
+    role: "assistant",
+    content:
+      "Namaste! 👋 Main AgriConnect AI Assistant hoon. Aap crops, farming, weather, market prices ya government schemes ke baare mein mujhse pooch sakte hain.",
+  },
+]);
+
+const [aiLoading, setAiLoading] = useState(false);
 const [location, setLocation] = useState({
   latitude: 26.4499,
   longitude: 80.3319,
@@ -139,6 +151,68 @@ const closeCropModal = () => {
   setCropStatus("");
   setCropProgress("");
   setCropDays("");
+};
+const handleAISend = async () => {
+  const message = aiMessage.trim();
+
+  if (!message || aiLoading) {
+    return;
+  }
+
+  // User message chat me add karo
+  setAiMessages((prev) => [
+    ...prev,
+    {
+      role: "user",
+      content: message,
+    },
+  ]);
+
+  // Input clear
+  setAiMessage("");
+
+  // Loading start
+  setAiLoading(true);
+
+  try {
+    const response = await fetch("http://localhost:5000/api/ai", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: message,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to get AI response.");
+    }
+
+    // AI response chat me add karo
+    setAiMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: data.reply,
+      },
+    ]);
+  } catch (error) {
+    console.error("AI Assistant Error:", error);
+
+    setAiMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content:
+          "Sorry, AI response nahi aa paaya. Please try again.",
+      },
+    ]);
+  } finally {
+    setAiLoading(false);
+  }
 };
 const handleAddCrop = async () => {
   if (!cropName || !cropStatus || !cropProgress || !cropDays) {
@@ -398,9 +472,11 @@ const handleDeleteCrop = async (cropId) => {
           />
 
           <SidebarItem
-            icon="🤖"
-            text="AI Assistant"
-          />
+  icon="🤖"
+  text="AI Assistant"
+  active={showAI}
+  onClick={() => setShowAI(!showAI)}
+/>
 
           <SidebarItem
   icon="🗺️"
@@ -874,68 +950,139 @@ const handleDeleteCrop = async (cropId) => {
 
             {/* ================= AI ASSISTANT ================= */}
 
-            <div
-              className="
-                rounded-3xl
-                border border-green-500/20
-                bg-gradient-to-br
-                from-green-500/10
-                to-black/20
-                p-6
-                relative
-                overflow-hidden
-              "
-            >
+          {showAI && (
+  <div className="mt-7 rounded-3xl border border-green-900/40 bg-green-950/10 backdrop-blur-xl p-6">
 
-              <div
-                className="
-                  absolute
-                  right-[-40px]
-                  top-[-40px]
-                  w-40
-                  h-40
-                  rounded-full
-                  bg-green-500/10
-                  blur-3xl
-                "
-              />
+    {/* Header */}
+    <div className="flex items-center justify-between mb-6">
 
-              <div className="relative z-10">
+      <div>
+        <h2 className="text-xl font-bold">
+          AI Assistant 🤖
+        </h2>
 
-                <div className="text-4xl mb-4">
-                  🤖
-                </div>
+        <p className="text-sm text-gray-500 mt-1">
+          Ask anything about farming, crops, weather and schemes
+        </p>
+      </div>
 
-                <h2 className="text-xl font-bold">
-                  AI Crop Assistant
-                </h2>
+      <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-xl">
+        🤖
+      </div>
 
-                <p className="text-gray-500 text-sm mt-2 leading-relaxed">
-                  Get smart farming advice, crop recommendations
-                  and disease detection assistance.
-                </p>
+    </div>
 
-                <button
-                  className="
-                    mt-6
-                    w-full
-                    py-3
-                    rounded-xl
-                    bg-green-500
-                    text-black
-                    font-bold
-                    hover:bg-green-400
-                    transition
-                  "
-                >
-                  Ask AI Assistant →
-                </button>
 
-              </div>
+    {/* Chat messages */}
+    <div className="min-h-[250px] max-h-[350px] overflow-y-auto space-y-4 mb-4">
 
+      {aiMessages.map((message, index) => (
+        <div
+          key={index}
+          className={`flex gap-3 ${
+            message.role === "user"
+              ? "justify-end"
+              : "justify-start"
+          }`}
+        >
+
+          {/* AI icon */}
+          {message.role === "assistant" && (
+            <div className="w-9 h-9 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+              🤖
             </div>
+          )}
 
 
+          {/* Message */}
+          <div
+            className={`max-w-[80%] rounded-2xl p-4 ${
+              message.role === "user"
+                ? "bg-green-600 text-white rounded-tr-none"
+                : "bg-black/20 border border-green-900/30 text-gray-300 rounded-tl-none"
+            }`}
+          >
+            <p className="text-sm whitespace-pre-wrap">
+              {message.content}
+            </p>
+          </div>
+
+        </div>
+      ))}
+
+
+      {/* AI loading */}
+      {aiLoading && (
+        <div className="flex gap-3">
+
+          <div className="w-9 h-9 rounded-full bg-green-500/10 flex items-center justify-center">
+            🤖
+          </div>
+
+          <div className="bg-black/20 border border-green-900/30 rounded-2xl rounded-tl-none p-4">
+            <p className="text-sm text-gray-400">
+              Thinking... 🤔
+            </p>
+          </div>
+
+        </div>
+      )}
+
+    </div>
+
+
+    {/* Input */}
+    <div className="flex gap-3">
+
+      <input
+        type="text"
+        value={aiMessage}
+        onChange={(e) => setAiMessage(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            handleAISend();
+          }
+        }}
+        placeholder="Ask something about farming..."
+        disabled={aiLoading}
+        className="
+          flex-1
+          px-4
+          py-3
+          rounded-xl
+          bg-black/30
+          border border-green-900/40
+          text-white
+          outline-none
+          focus:border-green-500
+          disabled:opacity-50
+        "
+      />
+
+
+      <button
+        onClick={handleAISend}
+        disabled={aiLoading || !aiMessage.trim()}
+        className="
+          px-5
+          py-3
+          rounded-xl
+          bg-green-500
+          text-black
+          font-bold
+          hover:bg-green-400
+          transition
+          disabled:opacity-50
+          disabled:cursor-not-allowed
+        "
+      >
+        {aiLoading ? "..." : "Send"}
+      </button>
+
+    </div>
+
+  </div>
+)}
             {/* ================= MARKET ================= */}
 
             <div
