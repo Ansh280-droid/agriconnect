@@ -4,7 +4,7 @@ AgriConnect is a web platform that helps farmers register, sign in securely and 
 
 > 🔗 **Live Demo:** _Coming soon_
 > 📸 **Screenshots:** see the [Screenshots](#-screenshot) section below
-"C:\Users\hp\Pictures\Screenshot 2026-09-15 072944.png"
+
 
 
 ## 📌 Problem Statement
